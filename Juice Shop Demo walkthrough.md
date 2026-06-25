@@ -266,3 +266,5 @@ kubectl delete -f k8s-src/
 - Exit codes: Snyk returns **1** when issues are found — exactly how you'd gate a CI pipeline.
 
 > Note: exact vulnerability counts and CVE IDs vary with the image and the date you run it (Snyk's DB updates constantly). The output blocks above are illustrative of shape, not exact numbers.
+
+test trivial change
