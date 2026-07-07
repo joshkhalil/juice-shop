@@ -23,8 +23,8 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: juice-shop
-        image: clintonherget/snyk-juice-shop
-        imagePullPolicy: IfNotPresent
+        image: juice-shop:latest        
+        imagePullPolicy: Never
         ports:
         - containerPort: 3000
         # Resource requests/limits — clears the "no limits" findings
