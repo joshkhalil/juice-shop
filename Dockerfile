@@ -1,13 +1,17 @@
+# syntax=docker/dockerfile:1
 FROM node:12.18.4-buster
+
+# The default repos have been archived by Debian (deb.debian.org returns 404), so
+# point apt at the Debian snapshot archive before doing anything else. Use http
+# for this bootstrap step so we don't need ca-certificates to be present yet.
+RUN echo 'deb     [trusted=yes check-valid-until=no] http://snapshot.debian.org/archive/debian/20211201T215332Z/ buster main \n\
+deb-src [trusted=yes check-valid-until=no] http://snapshot.debian.org/archive/debian/20211201T215332Z/ buster main \n\
+deb     [trusted=yes check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20211201T215332Z/ buster/updates main \n\
+deb-src [trusted=yes check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20211201T215332Z/ buster/updates main' > /etc/apt/sources.list
 
 RUN apt-get -y update && apt-get -y install ca-certificates apt-transport-https
 
-RUN echo 'deb     [trusted=yes check-valid-until=no] https://snapshot.debian.org/archive/debian/20211201T215332Z/ buster main \n\
-deb-src [trusted=yes check-valid-until=no] https://snapshot.debian.org/archive/debian/20211201T215332Z/ buster main \n\
-deb     [trusted=yes check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20211201T215332Z/ buster/updates main \n\
-deb-src [trusted=yes check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20211201T215332Z/ buster/updates main' >> /etc/apt/sources.list
-
-RUN apt-get -y update && apt-get -y install \
+RUN apt-get -y install \
     liblog4j2-java=2.11.1-2
 
 ARG BUILD_DATE
@@ -30,7 +34,14 @@ RUN addgroup --system --gid 1001 juicer && \
     adduser juicer --system --uid 1001 --ingroup juicer
 COPY --chown=juicer . /juice-shop
 WORKDIR /juice-shop
-RUN npm install --production --unsafe-perm
+# If building behind a TLS-intercepting proxy (e.g. Zscaler), pass the corporate
+# root CA as a build secret so npm can verify the registry without the cert ever
+# being committed to the repo or baked into an image layer:
+#   docker build --secret id=ca,src=/path/to/corp-ca.crt -t juice-shop .
+# The build also works without the secret on networks with no TLS interception.
+RUN --mount=type=secret,id=ca \
+    if [ -f /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
+    npm install --production --unsafe-perm
 RUN npm dedupe
 RUN rm -rf frontend/node_modules
 RUN mkdir logs && \
